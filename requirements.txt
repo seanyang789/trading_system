@@ -1,0 +1,2 @@
+# Runtime and test dependency for the strategy_lab modules
+pandas>=2.0,<3
