@@ -4,17 +4,18 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from shared.data_quality import load_bk
+except ImportError:
+    from ..shared.data_quality import load_bk
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "shared" / "data" / "bk.csv"
 
 
 def find_buy_points(target=None, seed=None):
-    df = pd.read_csv(DATA, encoding="gbk")
-    df.columns = [str(c).strip() for c in df.columns]
-    df["日期"] = pd.to_datetime(df["日期"])
-    df["收盘"] = pd.to_numeric(df["收盘"])
-    df = df.sort_values(["板块名称", "日期"]).reset_index(drop=True)
+    df = load_bk(DATA)
     g = df.groupby("板块名称", group_keys=False)
     for span in (5, 10):
         df[f"ema{span}"] = g["收盘"].transform(lambda s: s.ewm(span=span, adjust=False, min_periods=span).mean())

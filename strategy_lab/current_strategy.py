@@ -4,10 +4,12 @@ from pathlib import Path
 
 import pandas as pd
 try:
+    from shared.data_quality import load_bk
     from .result_analysis import analyze_result
     from .experiment_metrics import save_standard_result_set
     from .experiment_manager import build_experiment_name_zh
 except ImportError:
+    from ..shared.data_quality import load_bk
     from result_analysis import analyze_result
     from experiment_metrics import save_standard_result_set
     from experiment_manager import build_experiment_name_zh
@@ -29,19 +31,7 @@ def next_experiment_id():
 
 
 def load_data():
-    df = pd.read_csv(DATA_FILE, encoding="gbk")
-    df.columns = [str(column).strip() for column in df.columns]
-    required = {"日期", "板块名称", "收盘"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"缺少必要字段: {sorted(missing)}")
-    df["日期"] = pd.to_datetime(df["日期"], errors="coerce")
-    df["收盘"] = pd.to_numeric(df["收盘"], errors="coerce")
-    if df[["日期", "板块名称", "收盘"]].isna().any().any():
-        raise ValueError("日期、板块名称或收盘价存在缺失/非法值")
-    if (df["收盘"] <= 0).any():
-        raise ValueError("收盘价必须为正数")
-    return df.sort_values(["板块名称", "日期"]).reset_index(drop=True)
+    return load_bk(DATA_FILE)
 
 
 def run_backtest(df):
