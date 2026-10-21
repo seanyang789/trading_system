@@ -30,6 +30,23 @@ validation.json
 - `status`
 - `metrics`
 - `validation`
+- `data_scope`
+
+`data_scope` 是正式实验和所有衍生分析必须继承的时间边界，至少记录：
+
+- `result_start_date`、`result_end_date`：统计结果中信号/决策日期的首尾日期；
+- `realized_start_date`、`realized_end_date`：收益实际实现日期的首尾日期；
+- `calculation_start_date`、`calculation_end_date`：计算时读取的数据范围；
+- `requested_start_date`、`requested_end_date`：用户指定范围；
+- `indicator_warmup_start_date`：为均线、动量等指标读取的前置预热数据起点；
+- `source_fingerprint`：输入源路径、大小、修改时间和 SHA-256。
+- `source_fingerprint.snapshot_path`：实验目录内不可变输入快照的相对路径；新正式实验必须归档并校验快照。
+
+结果日期、输入日期和数据版本是不同概念，必须分开记录。报告区间外的数据可以用于指标预热，但不得作为区间内统计结果或信号样本。涉及次日收益时，收益实现日期也必须处于结果区间内。
+
+衍生实验必须指定父实验并继承其决策日期区间及数据版本。父实验若缺少区间元数据，不能静默使用当前全量数据，应按归档结果明确区间或停止并提示。若信号结果需要窗口外未来行情，应将其定义为独立观察期记录，不能混入父实验收益。父结果包含 `next_return_date` 时，以该列校验收益实现日；旧结果无此列时，无法证明区间尾部收益在界内，必须保守剔除末尾未确认观测或重新回测。
+
+旧实验若没有 `data_scope`，其归档结果日期范围仍可读取，但输入数据版本无法追溯，必须标记为“结果区间可知、源版本未知”。旧实验即使记录 SHA 但没有快照，只有当前源文件 SHA 仍匹配时才可继续做同版本衍生测试。
 
 `metrics` 至少记录 `rows`、`max_return`、`min_return` 和 `alert_count`。
 
@@ -45,6 +62,8 @@ validation.json
 - 累计收益
 
 `next_return` 统一定义为：在当日收盘根据信号完成交易后，持仓组合在下一交易日收盘产生的收益。最后一个交易日没有下一交易日收益时，不纳入收益序列。
+
+组合结果应同时保存 `next_return_date`，明确该收益的实现日期。区间过滤按收益实现日判断；逐笔交易只有买入日和卖出日均处于固定窗口内才进入该窗口的完整交易统计。
 
 ## 分析指标
 

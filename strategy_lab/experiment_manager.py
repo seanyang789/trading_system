@@ -14,6 +14,7 @@ DOCS_ROOT = PROJECT_ROOT / "docs"
 INDEX_PATH = EXPERIMENTS_ROOT / "index.csv"
 INDEX_COLUMNS = [
     "strategy_name", "experiment_id", "experiment_name_zh", "description", "status",
+    "data_start_date", "data_end_date", "source_sha256",
     "created_at", "result_rows", "max_return", "min_return",
     "alert_count", "experiment_path",
 ]
@@ -149,7 +150,7 @@ def _verify_deleted(records):
 
 
 def list_experiments():
-    print("中文实验名称\t内部目录\t状态\t规则描述")
+    print("中文实验名称\t内部目录\t结果区间\t数据版本\t状态\t规则描述")
     found = False
     for strategy_name, experiment_dir in sorted(_experiment_dirs() or []):
         meta_path = experiment_dir / "meta.json"
@@ -158,7 +159,23 @@ def list_experiments():
         except (OSError, json.JSONDecodeError):
             meta = {}
         name_zh = meta.get("experiment_name_zh") or build_experiment_name_zh(strategy_name, meta.get("description", ""))
-        print(f"{name_zh}\t{strategy_name}/{experiment_dir.name}\t{meta.get('status', 'unknown')}\t{meta.get('description', '')}")
+        scope = meta.get("data_scope", {})
+        if (not scope.get("result_start_date") or not scope.get("result_end_date")) and (experiment_dir / "result.csv").is_file():
+            try:
+                legacy = pd.read_csv(experiment_dir / "result.csv", encoding="utf-8-sig", usecols=lambda col: col == "日期")
+                dates = pd.to_datetime(legacy["日期"], errors="coerce").dropna()
+                if not dates.empty:
+                    scope = {"result_start_date": dates.min().date().isoformat(),
+                             "result_end_date": dates.max().date().isoformat(),
+                             "scope_status": "legacy_result_range_only"}
+            except (OSError, ValueError, pd.errors.ParserError):
+                pass
+        period = f"{scope.get('result_start_date', '区间未知')}~{scope.get('result_end_date', '区间未知')}"
+        source = scope.get("source_fingerprint", {})
+        version = source.get("sha256", "源版本未知")[:12] if isinstance(source, dict) else "源版本未知"
+        print(f"{name_zh}\t{strategy_name}/{experiment_dir.name}\t{period}\t{version}\t{meta.get('status', 'unknown')}\t{meta.get('description', '')}")
+        if scope.get("scope_status") == "legacy_result_range_only":
+            print("  注：日期范围来自旧归档结果，原始输入数据版本未知。")
         found = True
     if not found:
         print("暂无实验。")

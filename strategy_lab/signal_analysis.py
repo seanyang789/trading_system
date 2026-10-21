@@ -48,7 +48,7 @@ def _normalise_signals(signals):
     return result[["日期", "板块名称"]].drop_duplicates().sort_values(["板块名称", "日期"]).reset_index(drop=True)
 
 
-def analyze_signals(quotes, signals):
+def analyze_signals(quotes, signals, observation_end=None):
     """计算逐信号未来收益、MFE、MAE和前三日风险。
 
     信号日收盘价作为买入价格；未来第N个交易日从信号日之后计算。
@@ -56,6 +56,7 @@ def analyze_signals(quotes, signals):
     """
     data = _normalise_quotes(quotes)
     signal_rows = _normalise_signals(signals)
+    end_date = pd.Timestamp(observation_end) if observation_end is not None else data["日期"].max()
     grouped = {symbol: group.reset_index(drop=True) for symbol, group in data.groupby("板块名称", sort=False)}
     records = []
     for signal in signal_rows.itertuples(index=False):
@@ -69,6 +70,7 @@ def analyze_signals(quotes, signals):
         entry = float(series.loc[position, "收盘"])
         record = {"signal_date": signal.日期, "symbol": signal.板块名称, "signal_price": entry}
         future = series.iloc[position + 1:]
+        future = future.loc[future["日期"] <= end_date]
         for window in RETURN_WINDOWS:
             record[f"return_{window}d"] = (
                 float(future.iloc[window - 1]["收盘"] / entry - 1) if len(future) >= window else float("nan")

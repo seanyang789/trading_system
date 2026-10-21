@@ -14,6 +14,11 @@ def analyze_result(result):
         raise ValueError(f"结果缺少字段: {sorted(missing)}")
     result = result.sort_values("日期").reset_index(drop=True)
     returns = pd.to_numeric(result["next_return"], errors="coerce")
+    if "next_return_date" in result:
+        realized_dates = pd.to_datetime(result["next_return_date"], errors="coerce")
+        valid_realized = realized_dates.notna()
+        result = result.loc[valid_realized].copy().reset_index(drop=True)
+        returns = pd.to_numeric(result["next_return"], errors="coerce")
     equity = pd.to_numeric(result["cum_return"], errors="coerce")
     peak = equity.cummax()
     drawdown = equity / peak - 1
